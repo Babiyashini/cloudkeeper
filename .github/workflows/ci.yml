@@ -1,4 +1,4 @@
-﻿name: CI — Build & Smoke Test
+﻿name: CI — Build, Test & Publish
 
 on:
   push:
@@ -7,9 +7,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  build:
-    name: Docker build + healthcheck
+  build-and-test:
+    name: Build + smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -20,7 +24,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image
+      - name: Build image (local only)
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -39,38 +43,33 @@ jobs:
             cloudkeeper:ci
           for i in $(seq 1 30); do
             if curl -sf http://localhost:5000/health > /dev/null; then
-              echo "/health is up"
-              break
+              echo "/health is up"; break
             fi
-            echo "waiting ($i/30)..."
-            sleep 1
+            echo "waiting ($i/30)..."; sleep 1
           done
 
       - name: Smoke test - /health
         run: |
           response=$(curl -sf http://localhost:5000/health)
-          echo "GET /health -> $response"
-          echo "$response" | grep -q '"status":"ok"' || (echo "health check failed" && exit 1)
+          echo "$response" | grep -q '"status":"ok"' || exit 1
 
       - name: Smoke test - /api/costs/summary
         run: |
           response=$(curl -sf http://localhost:5000/api/costs/summary)
-          echo "GET /api/costs/summary -> $response"
-          echo "$response" | grep -q '"grand_total"' || (echo "summary missing grand_total" && exit 1)
-          echo "$response" | grep -q '"AWS"' || (echo "summary missing AWS" && exit 1)
+          echo "$response" | grep -q '"grand_total"' || exit 1
+          echo "$response" | grep -q '"AWS"' || exit 1
 
       - name: Smoke test - /api/alerts
         run: |
           response=$(curl -sf http://localhost:5000/api/alerts)
-          echo "GET /api/alerts -> $response"
-          echo "$response" | grep -q '"alerts"' || (echo "alerts missing alerts key" && exit 1)
+          echo "$response" | grep -q '"alerts"' || exit 1
 
       - name: Smoke test - all 4 HTML pages
         run: |
           for path in / /resources /recommendations /reports; do
             code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5000$path")
             echo "$path -> $code"
-            [ "$code" = "200" ] || (echo "$path returned $code" && exit 1)
+            [ "$code" = "200" ] || exit 1
           done
 
       - name: Container logs (on failure)
@@ -80,3 +79,46 @@ jobs:
       - name: Stop container
         if: always()
         run: docker stop ck-ci || true
+
+  publish:
+    name: Publish to GHCR
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
