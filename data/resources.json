@@ -1,0 +1,33 @@
+{
+  "resources": [
+    {"id": "i-0a1b2c3d4e5f6a7b8", "name": "prod-web-server-01", "provider": "AWS", "type": "EC2", "region": "us-east-1", "monthly_cost": 245.50, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce", "CostCenter": "eng-001"}},
+    {"id": "i-1b2c3d4e5f6a7b8c9", "name": "prod-web-server-02", "provider": "AWS", "type": "EC2", "region": "us-east-1", "monthly_cost": 245.50, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce", "CostCenter": "eng-001"}},
+    {"id": "i-2c3d4e5f6a7b8c9d0", "name": "dev-test-server-01", "provider": "AWS", "type": "EC2", "region": "us-west-2", "monthly_cost": 125.30, "tags": {"Environment": "dev", "Owner": "developer-team"}},
+    {"id": "i-3d4e5f6a7b8c9d0e1", "name": "untagged-legacy-server", "provider": "AWS", "type": "EC2", "region": "us-east-1", "monthly_cost": 189.75, "tags": {}},
+    {"id": "i-4e5f6a7b8c9d0e1f2", "name": "batch-processor", "provider": "AWS", "type": "EC2", "region": "eu-west-1", "monthly_cost": 310.20, "tags": {"Environment": "production", "Project": "analytics"}},
+    {"id": "db-prod-001", "name": "prod-postgres-main", "provider": "AWS", "type": "RDS", "region": "us-east-1", "monthly_cost": 680.00, "tags": {"Environment": "production", "Owner": "dba-team", "Project": "ecommerce", "CostCenter": "eng-001"}},
+    {"id": "db-prod-replica", "name": "prod-postgres-replica", "provider": "AWS", "type": "RDS", "region": "us-east-1", "monthly_cost": 340.00, "tags": {"Environment": "production", "Owner": "dba-team", "Project": "ecommerce"}},
+    {"id": "db-dev-001", "name": "dev-mysql", "provider": "AWS", "type": "RDS", "region": "us-west-2", "monthly_cost": 95.50, "tags": {"Environment": "dev"}},
+    {"id": "s3-prod-assets", "name": "prod-assets-bucket", "provider": "AWS", "type": "S3", "region": "us-east-1", "monthly_cost": 45.30, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce"}},
+    {"id": "s3-backup", "name": "backup-bucket", "provider": "AWS", "type": "S3", "region": "us-east-1", "monthly_cost": 125.80, "tags": {"Environment": "production", "Owner": "ops-team"}},
+    {"id": "s3-untagged", "name": "old-logs-bucket", "provider": "AWS", "type": "S3", "region": "us-east-1", "monthly_cost": 32.40, "tags": {}},
+    {"id": "lambda-processor", "name": "order-processor-fn", "provider": "AWS", "type": "Lambda", "region": "us-east-1", "monthly_cost": 18.60, "tags": {"Environment": "production", "Owner": "backend-team", "Project": "ecommerce"}},
+    {"id": "lambda-untagged", "name": "cron-cleanup-fn", "provider": "AWS", "type": "Lambda", "region": "us-east-1", "monthly_cost": 4.20, "tags": {}},
+    {"id": "vm-azure-web-01", "name": "azure-prod-web-01", "provider": "Azure", "type": "VMs", "region": "eastus", "monthly_cost": 290.00, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce", "CostCenter": "eng-001"}},
+    {"id": "vm-azure-web-02", "name": "azure-prod-web-02", "provider": "Azure", "type": "VMs", "region": "eastus", "monthly_cost": 290.00, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce", "CostCenter": "eng-001"}},
+    {"id": "vm-azure-test", "name": "azure-test-vm", "provider": "Azure", "type": "VMs", "region": "westus2", "monthly_cost": 145.00, "tags": {"Environment": "test"}},
+    {"id": "vm-azure-orphaned", "name": "forgotten-vm", "provider": "Azure", "type": "VMs", "region": "eastus", "monthly_cost": 320.50, "tags": {}},
+    {"id": "blob-prod", "name": "prodblobstorage", "provider": "Azure", "type": "Blob Storage", "region": "eastus", "monthly_cost": 78.20, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce"}},
+    {"id": "blob-dev", "name": "devblobstorage", "provider": "Azure", "type": "Blob Storage", "region": "westus2", "monthly_cost": 28.40, "tags": {"Environment": "dev"}},
+    {"id": "sqldb-prod-azure", "name": "prod-sql-db", "provider": "Azure", "type": "SQL Database", "region": "eastus", "monthly_cost": 520.00, "tags": {"Environment": "production", "Owner": "dba-team", "Project": "ecommerce"}},
+    {"id": "appservice-prod", "name": "prod-app-service", "provider": "Azure", "type": "App Service", "region": "eastus", "monthly_cost": 175.00, "tags": {"Environment": "production", "Owner": "backend-team", "Project": "ecommerce"}},
+    {"id": "appservice-untagged", "name": "unlabeled-app", "provider": "Azure", "type": "App Service", "region": "eastus", "monthly_cost": 88.00, "tags": {}},
+    {"id": "gcp-vm-web", "name": "gcp-prod-web", "provider": "GCP", "type": "Compute Engine", "region": "us-central1", "monthly_cost": 220.00, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce"}},
+    {"id": "gcp-vm-worker", "name": "gcp-worker-01", "provider": "GCP", "type": "Compute Engine", "region": "us-central1", "monthly_cost": 185.00, "tags": {"Environment": "production", "Owner": "backend-team"}},
+    {"id": "gcp-vm-untagged", "name": "mystery-instance", "provider": "GCP", "type": "Compute Engine", "region": "europe-west1", "monthly_cost": 260.00, "tags": {}},
+    {"id": "gcs-prod", "name": "prod-gcs-bucket", "provider": "GCP", "type": "Cloud Storage", "region": "us-central1", "monthly_cost": 52.30, "tags": {"Environment": "production", "Owner": "platform-team", "Project": "ecommerce"}},
+    {"id": "gcs-untagged", "name": "temp-bucket", "provider": "GCP", "type": "Cloud Storage", "region": "us-central1", "monthly_cost": 15.60, "tags": {}},
+    {"id": "bq-analytics", "name": "analytics-dataset", "provider": "GCP", "type": "BigQuery", "region": "us-central1", "monthly_cost": 340.00, "tags": {"Environment": "production", "Owner": "data-team", "Project": "analytics"}},
+    {"id": "cloudsql-prod", "name": "prod-cloudsql", "provider": "GCP", "type": "Cloud SQL", "region": "us-central1", "monthly_cost": 410.00, "tags": {"Environment": "production", "Owner": "dba-team", "Project": "ecommerce"}}
+  ]
+}

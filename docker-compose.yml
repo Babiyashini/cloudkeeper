@@ -1,0 +1,21 @@
+services:
+  cloudkeeper:
+    build: .
+    container_name: cloudkeeper
+    ports:
+      - "5050:5000"
+    environment:
+      - PORT=5000
+    volumes:
+      # Mount data and modules folders for hot-reload during development
+      # These folders don't exist yet — they'll be created in Phase 2
+      - ./data:/app/data:ro
+      - ./modules:/app/modules
+      - ./templates:/app/templates
+      - ./static:/app/static
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

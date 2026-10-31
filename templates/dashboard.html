@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ============================================================
+     KPI ROW
+     ============================================================ -->
+<div class="ck-grid cols-4 mb-4">
+  <div class="ck-kpi total">
+    <div class="ck-kpi-icon"><i class="fa-solid fa-dollar-sign"></i></div>
+    <div class="ck-kpi-label">Total spend</div>
+    <div class="ck-kpi-value" id="kpi-total">
+      <span class="ck-skeleton ck-skeleton-value"></span>
+    </div>
+    <div class="ck-kpi-foot">All clouds · USD · this month</div>
+  </div>
+
+  <div class="ck-kpi aws">
+    <div class="ck-kpi-icon"><i class="fa-brands fa-aws"></i></div>
+    <div class="ck-kpi-label">AWS</div>
+    <div class="ck-kpi-value" id="kpi-aws">
+      <span class="ck-skeleton ck-skeleton-value"></span>
+    </div>
+    <div class="ck-kpi-foot" id="kpi-aws-alert">
+      <span class="ck-skeleton ck-skeleton-row" style="width:70px"></span>
+    </div>
+  </div>
+
+  <div class="ck-kpi azure">
+    <div class="ck-kpi-icon"><i class="fa-brands fa-microsoft"></i></div>
+    <div class="ck-kpi-label">Azure</div>
+    <div class="ck-kpi-value" id="kpi-azure">
+      <span class="ck-skeleton ck-skeleton-value"></span>
+    </div>
+    <div class="ck-kpi-foot" id="kpi-azure-alert">
+      <span class="ck-skeleton ck-skeleton-row" style="width:70px"></span>
+    </div>
+  </div>
+
+  <div class="ck-kpi gcp">
+    <div class="ck-kpi-icon"><i class="fa-brands fa-google"></i></div>
+    <div class="ck-kpi-label">GCP</div>
+    <div class="ck-kpi-value" id="kpi-gcp">
+      <span class="ck-skeleton ck-skeleton-value"></span>
+    </div>
+    <div class="ck-kpi-foot" id="kpi-gcp-alert">
+      <span class="ck-skeleton ck-skeleton-row" style="width:70px"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     CHARTS ROW — trend (2fr) + donut (1fr)
+     ============================================================ -->
+<div class="ck-grid mb-4" style="grid-template-columns: 2fr 1fr;">
+  <!-- Trend -->
+  <div class="ck-card" id="trend-card">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+      <div>
+        <h3 class="ck-card-title mb-1"><i class="fa-solid fa-chart-area"></i> Daily spend trend</h3>
+        <p class="ck-page-sub mb-0">Last 30 days · USD</p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="ck-chip"><i class="fa-solid fa-calendar"></i> 30d</span>
+        <span class="ck-chip" id="trend-total-chip">—</span>
+      </div>
+    </div>
+    <div style="position: relative; height: 280px;">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Donut -->
+  <div class="ck-card" id="donut-card">
+    <h3 class="ck-card-title"><i class="fa-solid fa-chart-pie"></i> Spend by provider</h3>
+    <div class="d-flex align-items-center" style="gap: 16px;">
+      <div class="ck-donut-wrap" style="flex: 0 0 180px;">
+        <canvas id="donutChart" width="180" height="180"></canvas>
+        <div class="ck-donut-center">
+          <div>
+            <div class="ck-donut-value" id="donut-total">—</div>
+            <div class="ck-donut-label">USD total</div>
+          </div>
+        </div>
+      </div>
+      <div id="donut-legend" style="flex: 1; font-size: 13px;">
+        <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+        <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+        <div class="ck-skeleton ck-skeleton-row"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TABLES ROW — top services + alerts
+     ============================================================ -->
+<div class="ck-grid cols-2">
+  <!-- Top 5 -->
+  <div class="ck-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="ck-card-title mb-0"><i class="fa-solid fa-ranking-star"></i> Top 5 services by cost</h3>
+      <a href="/reports" class="ck-chip" style="text-decoration:none;">
+        View report <i class="fa-solid fa-arrow-right ms-1"></i>
+      </a>
+    </div>
+    <table class="ck-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th>Service</th>
+          <th class="text-end">Monthly cost</th>
+          <th style="width: 30%;"></th>
+        </tr>
+      </thead>
+      <tbody id="top-services-body">
+        <tr><td colspan="4" class="py-3">
+          <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+          <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+          <div class="ck-skeleton ck-skeleton-row"></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Alerts -->
+  <div class="ck-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="ck-card-title mb-0"><i class="fa-solid fa-bell"></i> Budget alerts</h3>
+      <span class="ck-chip" id="alerts-count">—</span>
+    </div>
+    <div id="alerts-body">
+      <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+      <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+      <div class="ck-skeleton ck-skeleton-row"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ----------------------------------------------------------------------
+  // Count-up animation — pass 1 helper
+  // ----------------------------------------------------------------------
+  function ckCountUp(el, target, opts = {}) {
+    const prefix = opts.prefix ?? '$';
+    const duration = opts.duration ?? 900;
+    const decimals = opts.decimals ?? 2;
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = target * eased;
+      el.textContent = prefix + v.toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ----------------------------------------------------------------------
+  // Fetch all endpoints — resilient to individual failures
+  // ----------------------------------------------------------------------
+  Promise.allSettled([
+    fetch('/api/costs/summary').then(r => r.json()),
+    fetch('/api/costs/trend').then(r => r.json()),
+    fetch('/api/costs/top-services').then(r => r.json()),
+    fetch('/api/alerts').then(r => r.json()),
+  ]).then((results) => {
+    const [summary, trend, topServices, alerts] = results.map((r) => {
+      if (r.status === 'fulfilled') return r.value;
+      console.warn('[CK] endpoint failed:', r.reason);
+      return null;
+    });
+    window.CK_DASHBOARD = { summary, trend, topServices, alerts };
+    console.log('[CK] dashboard data:', window.CK_DASHBOARD);
+    renderDashboard();
+    hydrateExtras({ summary, trend, topServices, alerts });
+  });
+
+  // ----------------------------------------------------------------------
+  // Post-render extras — count-up on KPIs, trend chip, donut legend,
+  // top-5 mini bars, alerts count chip.
+  // ----------------------------------------------------------------------
+  function hydrateExtras({ summary, trend, topServices, alerts }) {
+    // KPI count-up
+    if (summary) {
+      const total = summary.grand_total ?? summary.total_cost ?? 0;
+      const perProvider = summary.per_provider || summary.providers || {};
+
+      const totalEl = document.getElementById('kpi-total');
+      if (totalEl) ckCountUp(totalEl, total);
+
+      const map = { aws: 'AWS', azure: 'AZURE', gcp: 'GCP' };
+      for (const [key, name] of Object.entries(map)) {
+        const val = Number(
+          typeof perProvider[name] === 'number'
+            ? perProvider[name]
+            : perProvider[name]?.total ?? 0
+        );
+        const el = document.getElementById(`kpi-${key}`);
+        if (el) ckCountUp(el, val);
+      }
+    }
+
+    // Trend chip: sum of all series
+    if (trend && trend.series) {
+      const grand = Object.values(trend.series)
+        .flat()
+        .reduce((a, b) => a + Number(b || 0), 0);
+      const chip = document.getElementById('trend-total-chip');
+      if (chip) chip.innerHTML = `<i class="fa-solid fa-sigma"></i> <strong>$${grand.toLocaleString('en-US',{maximumFractionDigits:0})}</strong>`;
+    }
+
+    // Donut legend
+    if (summary) {
+      const perProvider = summary.per_provider || summary.providers || {};
+      const palette = { AWS: '#ff9900', AZURE: '#0078d4', GCP: '#ea4335' };
+      const total = summary.grand_total ?? summary.total_cost ?? 1;
+      const legend = document.getElementById('donut-legend');
+      if (legend) {
+        legend.innerHTML = Object.entries(perProvider).map(([name, val]) => {
+          const n = typeof val === 'number' ? val : (val?.total || 0);
+          const pct = total ? ((n / total) * 100).toFixed(1) : '0.0';
+          const color = palette[name] || '#6366f1';
+          return `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
+                <span style="font-weight:500">${name}</span>
+              </div>
+              <div class="text-end">
+                <div style="font-weight:600">$${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                <div class="ck-mono" style="font-size:11px">${pct}%</div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    // Top-5 mini bars
+    if (topServices) {
+      const rows = Array.isArray(topServices) ? topServices
+        : (topServices.services || topServices.top_services || []);
+      const maxCost = Math.max(...rows.map(r => Number(r.cost ?? r.monthly_cost ?? 0)), 1);
+      const tbody = document.getElementById('top-services-body');
+      if (tbody && rows.length) {
+        const palette = { AWS: '#ff9900', AZURE: '#0078d4', GCP: '#ea4335' };
+        tbody.innerHTML = rows.slice(0, 5).map((r) => {
+          const cost = Number(r.cost ?? r.monthly_cost ?? 0);
+          const provider = (r.provider || r.cloud || '—').toUpperCase();
+          const color = palette[provider] || '#6366f1';
+          const width = Math.max(4, (cost / maxCost) * 100);
+          return `<tr>
+            <td><span class="ck-badge info">${r.provider || r.cloud || '—'}</span></td>
+            <td>${r.service || r.name || '—'}</td>
+            <td class="text-end ck-cost">$${cost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            <td>
+              <div class="ck-progress" style="height:6px">
+                <div class="ck-progress-fill" style="width:${width}%;background:${color}"></div>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+      }
+    }
+
+    // Alerts count chip + severity left border
+    if (alerts && alerts.alerts) {
+      const rows = alerts.alerts;
+      const countEl = document.getElementById('alerts-count');
+      if (countEl) {
+        const crit = rows.filter(a => a.status === 'CRITICAL').length;
+        const warn = rows.filter(a => a.status === 'WARNING').length;
+        countEl.innerHTML = `<strong>${rows.length}</strong> total` +
+          (crit ? ` · <span style="color:#991b1b">${crit} crit</span>` : '') +
+          (warn ? ` · <span style="color:#92400e">${warn} warn</span>` : '');
+      }
+    }
+  }
+</script>
+{% endblock %}

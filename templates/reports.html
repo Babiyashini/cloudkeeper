@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ============================================================
+     REPORT HEADER
+     ============================================================ -->
+<div class="ck-report-header">
+  <div class="ck-report-brand">
+    <i class="fa-solid fa-file-invoice-dollar"></i>
+    <div>
+      <h2>Monthly Cost Report</h2>
+      <p>
+        <span id="report-period">October 2026</span> ·
+        Generated <span id="report-generated">just now</span> ·
+        CloudKeeper v0.2.0
+      </p>
+    </div>
+  </div>
+  <div class="ck-report-actions">
+    <button class="ck-btn" onclick="exportReportCSV()">
+      <i class="fa-solid fa-download"></i> CSV
+    </button>
+    <button class="ck-btn" onclick="window.print()">
+      <i class="fa-solid fa-print"></i> Print / PDF
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     GRAND TOTAL STRIP
+     ============================================================ -->
+<div class="ck-card mb-4" style="padding: 20px;">
+  <div class="d-flex justify-content-between align-items-center" style="flex-wrap: wrap; gap: 16px;">
+    <div>
+      <div class="ck-kpi-label">Grand total</div>
+      <div class="ck-kpi-value" style="font-size: 36px; margin: 6px 0;" id="report-grand-total">
+        <span class="ck-skeleton ck-skeleton-value" style="width: 180px; height: 36px;"></span>
+      </div>
+      <div class="ck-kpi-foot">All providers · USD · <span id="report-period-2">October 2026</span></div>
+    </div>
+    <div class="d-flex gap-3" style="flex-wrap: wrap;">
+      <div style="text-align: center;">
+        <div class="ck-kpi-label" style="color: #ff9900;">AWS</div>
+        <div style="font-size: 20px; font-weight: 700; color: #ff9900;" id="report-aws-total">—</div>
+      </div>
+      <div style="width: 1px; background: var(--ck-border);"></div>
+      <div style="text-align: center;">
+        <div class="ck-kpi-label" style="color: #0078d4;">Azure</div>
+        <div style="font-size: 20px; font-weight: 700; color: #0078d4;" id="report-azure-total">—</div>
+      </div>
+      <div style="width: 1px; background: var(--ck-border);"></div>
+      <div style="text-align: center;">
+        <div class="ck-kpi-label" style="color: #ea4335;">GCP</div>
+        <div style="font-size: 20px; font-weight: 700; color: #ea4335;" id="report-gcp-total">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     EXPORT CARDS
+     ============================================================ -->
+<div class="ck-export-grid mb-4">
+  <div class="ck-export-card" onclick="exportReportCSV()">
+    <div class="ck-export-icon"><i class="fa-solid fa-file-csv"></i></div>
+    <div class="ck-export-title">CSV export</div>
+    <div class="ck-export-desc">Raw service breakdown · Opens in Excel</div>
+  </div>
+  <div class="ck-export-card" onclick="window.print()">
+    <div class="ck-export-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+      <i class="fa-solid fa-file-pdf"></i>
+    </div>
+    <div class="ck-export-title">PDF (Print)</div>
+    <div class="ck-export-desc">Clean one-page report · Use "Save as PDF"</div>
+  </div>
+  <div class="ck-export-card" onclick="copySummary()">
+    <div class="ck-export-icon" style="background: linear-gradient(135deg, #0f172a, #334155);">
+      <i class="fa-solid fa-clipboard"></i>
+    </div>
+    <div class="ck-export-title">Copy summary</div>
+    <div class="ck-export-desc">Paste into Slack or email</div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PER-PROVIDER CARDS
+     ============================================================ -->
+<div class="ck-grid cols-3" id="provider-cards">
+  <div class="ck-card">
+    <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+    <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+    <div class="ck-skeleton ck-skeleton-row"></div>
+  </div>
+  <div class="ck-card">
+    <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+    <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+    <div class="ck-skeleton ck-skeleton-row"></div>
+  </div>
+  <div class="ck-card">
+    <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+    <div class="ck-skeleton ck-skeleton-row mb-3"></div>
+    <div class="ck-skeleton ck-skeleton-row"></div>
+  </div>
+</div>
+
+<!-- Hidden raw data for CSV export -->
+<div id="report-data" style="display: none;"></div>
+
+<script>
+  // ---------------- fetch ----------------
+  Promise.allSettled([
+    fetch('/api/costs/services').then(r => r.json()),
+    fetch('/api/costs/summary').then(r => r.json()),
+  ]).then(([servicesRes, summaryRes]) => {
+    const services = servicesRes.status === 'fulfilled' ? servicesRes.value : null;
+    const summary  = summaryRes.status  === 'fulfilled' ? summaryRes.value  : null;
+
+    if (summary) hydrateHeader(summary);
+    if (services) renderProviderCards(services);
+
+    window.__REPORT__ = { services, summary };
+    document.getElementById('report-generated').textContent =
+      new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  });
+
+  // ---------------- header totals ----------------
+  function hydrateHeader(summary) {
+    const grand = Number(summary.grand_total || summary.total_cost || 0);
+    const pp = summary.per_provider || summary.providers || {};
+    const pick = (n) => {
+      const v = pp[n] ?? pp[n.toUpperCase()] ?? 0;
+      return typeof v === 'number' ? v : (v?.total || 0);
+    };
+
+    countUpMoney(document.getElementById('report-grand-total'), grand);
+    document.getElementById('report-aws-total').textContent   = '$' + pick('AWS').toFixed(2);
+    document.getElementById('report-azure-total').textContent = '$' + pick('AZURE').toFixed(2);
+    document.getElementById('report-gcp-total').textContent   = '$' + pick('GCP').toFixed(2);
+
+    if (summary.billing_period) {
+      const [year, month] = summary.billing_period.split('-');
+      const label = new Date(year, month - 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      document.getElementById('report-period').textContent   = label;
+      document.getElementById('report-period-2').textContent = label;
+    }
+  }
+
+  function countUpMoney(el, target) {
+    const start = performance.now();
+    const duration = 900;
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = '$' + (target * eased).toLocaleString('en-US', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2,
+      });
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------- provider cards ----------------
+  function renderProviderCards(data) {
+    const container = document.getElementById('provider-cards');
+    const palette = { AWS: '#ff9900', AZURE: '#0078d4', GCP: '#ea4335' };
+    const icons   = { AWS: 'fa-aws', AZURE: 'fa-microsoft', GCP: 'fa-google' };
+
+    const providers = Object.keys(data);
+    if (!providers.length) {
+      container.innerHTML = `<div class="ck-card" style="grid-column: 1 / -1;">
+        <div class="ck-empty">
+          <i class="fa-solid fa-inbox"></i>
+          <p class="ck-empty-title">No data</p>
+        </div>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = providers.map(provider => {
+      const services = data[provider] || {};
+      const entries = Object.entries(services).sort((a, b) => b[1] - a[1]);
+      const total = entries.reduce((sum, [, c]) => sum + Number(c || 0), 0);
+      const max = entries.length ? entries[0][1] : 1;
+      const color = palette[provider] || '#6366f1';
+      const icon  = icons[provider] || 'fa-cloud';
+
+      const rowsHtml = entries.map(([name, cost]) => {
+        const pct = max ? (cost / max) * 100 : 0;
+        return `<tr>
+          <td style="border:none; padding: 8px 0; font-size: 12.5px;">${name}</td>
+          <td style="border:none; padding: 8px 0; text-align: right;" class="ck-cost">$${Number(cost).toFixed(2)}</td>
+          <td style="border:none; padding: 8px 0 8px 12px; width: 40%;">
+            <div class="ck-progress" style="height:5px; margin-top:0;">
+              <div class="ck-progress-fill" style="width:${pct}%; background: ${color};"></div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      return `<div class="ck-card">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <div class="d-flex align-items-center gap-2">
+              <div style="width: 32px; height: 32px; border-radius: 8px; background: ${color};
+                          display: grid; place-items: center; color: #fff; font-size: 15px;">
+                <i class="fa-brands ${icon}"></i>
+              </div>
+              <div>
+                <div style="font-weight: 700; font-size: 15px;">${provider}</div>
+                <div class="ck-mono" style="font-size: 11px;">${entries.length} services</div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 20px; font-weight: 700; color: ${color};">$${total.toFixed(2)}</div>
+            <div class="ck-kpi-foot">monthly</div>
+          </div>
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>`;
+    }).join('');
+  }
+
+  // ---------------- CSV export ----------------
+  function exportReportCSV() {
+    const { services } = window.__REPORT__ || {};
+    if (!services) return;
+    let csv = 'Provider,Service,Monthly Cost (USD)\n';
+    for (const [provider, svcs] of Object.entries(services)) {
+      for (const [name, cost] of Object.entries(svcs)) {
+        csv += `"${provider}","${name}",${Number(cost).toFixed(2)}\n`;
+      }
+    }
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `cloudkeeper-report-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    ckToast('CSV downloaded', 'success');
+  }
+
+  // ---------------- copy summary ----------------
+  function copySummary() {
+    const { summary, services } = window.__REPORT__ || {};
+    if (!summary || !services) return;
+    const grand = Number(summary.grand_total || 0).toFixed(2);
+    const pp = summary.per_provider || {};
+    let text = `CloudKeeper Monthly Cost Report (${summary.billing_period || ''})\n`;
+    text += `Grand total: $${grand}\n\n`;
+    for (const [p, v] of Object.entries(pp)) {
+      text += `  ${p.padEnd(6)} $${Number(v).toFixed(2)}\n`;
+    }
+    text += `\nTop services:\n`;
+    const flat = [];
+    for (const [p, svcs] of Object.entries(services)) {
+      for (const [n, c] of Object.entries(svcs)) flat.push([p, n, Number(c)]);
+    }
+    flat.sort((a, b) => b[2] - a[2]).slice(0, 5).forEach(([p, n, c]) => {
+      text += `  ${p} ${n}: $${c.toFixed(2)}\n`;
+    });
+    navigator.clipboard.writeText(text).then(() => {
+      ckToast('Summary copied to clipboard', 'success');
+    }).catch(() => {
+      ckToast('Copy failed', 'error');
+    });
+  }
+
+  // ---------------- toast helper ----------------
+  if (typeof window.ckToast !== 'function') {
+    window.ckToast = function(message, type = 'info') {
+      const t = document.createElement('div');
+      t.className = `ck-toast ${type}`;
+      t.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${message}</span>`;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => t.classList.add('show'));
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2800);
+    };
+  }
+</script>
+{% endblock %}

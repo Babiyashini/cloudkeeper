@@ -1,0 +1,17 @@
+{
+  "AWS": {
+    "budget": 4500.00,
+    "owner": "platform-team",
+    "notes": "Includes $500 buffer for Q4 scale-up"
+  },
+  "AZURE": {
+    "budget": 3000.00,
+    "owner": "data-team",
+    "notes": "Includes Databricks workload estimate"
+  },
+  "GCP": {
+    "budget": 2500.00,
+    "owner": "ml-team",
+    "notes": "Includes Vertex AI GPU cluster"
+  }
+}

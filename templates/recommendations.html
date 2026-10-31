@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ============================================================
+     SAVINGS HERO
+     ============================================================ -->
+<div class="ck-card mb-4" style="padding: 0; overflow: hidden; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff;">
+  <div style="display: grid; grid-template-columns: 1fr auto; gap: 24px; padding: 28px;">
+    <div>
+      <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; opacity: 0.85; font-weight: 600;">
+        <i class="fa-solid fa-piggy-bank me-1"></i> Monthly savings potential
+      </div>
+      <div style="font-size: 44px; font-weight: 800; letter-spacing: -1px; margin: 8px 0; font-variant-numeric: tabular-nums;" id="savings-total">
+        <span class="ck-skeleton ck-skeleton-value" style="width: 180px; height: 44px; background: rgba(255,255,255,0.25);"></span>
+      </div>
+      <div style="font-size: 13px; opacity: 0.9;" id="savings-sub">
+        Across all clouds · USD · this month
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; min-width: 200px;">
+      <div style="background: rgba(255,255,255,0.15); padding: 14px 18px; border-radius: 10px; backdrop-filter: blur(6px);">
+        <div style="font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Recommendations</div>
+        <div style="font-size: 22px; font-weight: 700;" id="rec-count">—</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.15); padding: 14px 18px; border-radius: 10px; backdrop-filter: blur(6px);">
+        <div style="font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">High severity</div>
+        <div style="font-size: 22px; font-weight: 700;" id="rec-high-count">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TOOLBAR — chips + search + export
+     ============================================================ -->
+<div class="d-flex justify-content-between align-items-center mb-3" style="flex-wrap: wrap; gap: 12px;">
+  <div class="ck-chips mb-0" id="rec-chips">
+    <div class="ck-chip-btn active" data-filter="all">
+      All <span class="ck-chip-count" id="rec-count-all">—</span>
+    </div>
+    <div class="ck-chip-btn" data-filter="HIGH">
+      HIGH <span class="ck-chip-count" id="rec-count-high">—</span>
+    </div>
+    <div class="ck-chip-btn" data-filter="MEDIUM">
+      MEDIUM <span class="ck-chip-count" id="rec-count-med">—</span>
+    </div>
+    <div class="ck-chip-btn" data-filter="LOW">
+      LOW <span class="ck-chip-count" id="rec-count-low">—</span>
+    </div>
+  </div>
+  <div class="d-flex gap-2" style="flex-wrap: wrap;">
+    <div class="ck-search">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="rec-search" placeholder="Search resource or recommendation…" autocomplete="off">
+    </div>
+    <button class="ck-btn" id="export-rec-btn">
+      <i class="fa-solid fa-download"></i> CSV
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     RECOMMENDATIONS TABLE
+     ============================================================ -->
+<div class="ck-card">
+  <h3 class="ck-card-title"><i class="fa-solid fa-lightbulb"></i> Optimisation actions</h3>
+
+  <div class="ck-table-wrap">
+    <table class="ck-table">
+      <thead>
+        <tr>
+          <th style="width: 90px;">Severity</th>
+          <th data-sort="resource">Resource <i class="fa-solid fa-sort" style="opacity:0.4;font-size:10px"></i></th>
+          <th data-sort="provider">Provider <i class="fa-solid fa-sort" style="opacity:0.4;font-size:10px"></i></th>
+          <th data-sort="cost" class="text-end">Cost <i class="fa-solid fa-sort" style="opacity:0.4;font-size:10px"></i></th>
+          <th data-sort="savings" class="text-end">Savings <i class="fa-solid fa-sort" style="opacity:0.4;font-size:10px"></i></th>
+          <th>Recommendation</th>
+          <th style="width: 130px;"></th>
+        </tr>
+      </thead>
+      <tbody id="rec-body">
+        <tr><td colspan="7" class="py-4">
+          <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+          <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+          <div class="ck-skeleton ck-skeleton-row mb-2"></div>
+          <div class="ck-skeleton ck-skeleton-row"></div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // ---------------- state ----------------
+  let ALL_RECS = [];
+  const state = { filter: 'all', query: '', sort: 'savings', dir: 'desc' };
+  const DISMISSED = new Set();
+
+  // ---------------- count-up helper ----------------
+  function countUp(el, target, prefix = '$', decimals = 2, duration = 900) {
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = prefix + (target * eased).toLocaleString('en-US', {
+        minimumFractionDigits: decimals, maximumFractionDigits: decimals,
+      });
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------- fetch ----------------
+  fetch('/api/recommendations').then(r => r.json()).then(d => {
+    ALL_RECS = (d.recommendations || []).slice();
+    renderSummary(d);
+    renderCounts();
+    renderTable();
+  }).catch(err => {
+    console.error('[CK] /api/recommendations failed:', err);
+    document.getElementById('rec-body').innerHTML =
+      '<tr><td colspan="7" class="ck-empty"><i class="fa-solid fa-plug-circle-xmark"></i><p class="ck-empty-title">Could not load recommendations</p></td></tr>';
+  });
+
+  // ---------------- summary hero ----------------
+  function renderSummary(d) {
+    const totalSavings = Number(d.total_savings_potential || 0);
+    const count = Number(d.count || ALL_RECS.length || 0);
+    const highCount = ALL_RECS.filter(r => String(r.severity).toUpperCase() === 'HIGH').length;
+
+    const totalEl = document.getElementById('savings-total');
+    if (totalEl) countUp(totalEl, totalSavings);
+
+    document.getElementById('rec-count').textContent      = count;
+    document.getElementById('rec-high-count').textContent = highCount;
+    document.getElementById('savings-sub').textContent =
+      `${count} opportunities across ${new Set(ALL_RECS.map(r => r.provider)).size} clouds`;
+  }
+
+  // ---------------- counts ----------------
+  function renderCounts() {
+    const c = (f) => f === 'all'
+      ? ALL_RECS.length
+      : ALL_RECS.filter(r => String(r.severity).toUpperCase() === f).length;
+    document.getElementById('rec-count-all').textContent  = c('all');
+    document.getElementById('rec-count-high').textContent = c('HIGH');
+    document.getElementById('rec-count-med').textContent  = c('MEDIUM');
+    document.getElementById('rec-count-low').textContent  = c('LOW');
+  }
+
+  // ---------------- chips ----------------
+  document.getElementById('rec-chips').addEventListener('click', (e) => {
+    const chip = e.target.closest('.ck-chip-btn');
+    if (!chip) return;
+    document.querySelectorAll('#rec-chips .ck-chip-btn').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    state.filter = chip.dataset.filter;
+    renderTable();
+  });
+
+  // ---------------- search ----------------
+  document.getElementById('rec-search').addEventListener('input', (e) => {
+    state.query = e.target.value.toLowerCase().trim();
+    renderTable();
+  });
+
+  // ---------------- sortable headers ----------------
+  document.querySelectorAll('.ck-table thead th[data-sort]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (state.sort === key) state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+      else { state.sort = key; state.dir = 'desc'; }
+      renderTable();
+    });
+  });
+
+  // ---------------- render ----------------
+  function renderTable() {
+    let rows = ALL_RECS.slice().filter(r => !DISMISSED.has(r.resource));
+
+    if (state.filter !== 'all') {
+      rows = rows.filter(r => String(r.severity).toUpperCase() === state.filter);
+    }
+    if (state.query) {
+      rows = rows.filter(r => {
+        const hay = `${r.resource || ''} ${r.recommendation || ''} ${r.type || ''}`.toLowerCase();
+        return hay.includes(state.query);
+      });
+    }
+    rows.sort((a, b) => {
+      let av, bv;
+      if (state.sort === 'savings') { av = Number(a.savings_potential || 0); bv = Number(b.savings_potential || 0); }
+      else if (state.sort === 'cost') { av = Number(a.monthly_cost || 0); bv = Number(b.monthly_cost || 0); }
+      else if (state.sort === 'provider') { av = String(a.provider || ''); bv = String(b.provider || ''); }
+      else { av = String(a.resource || ''); bv = String(b.resource || ''); }
+      if (av < bv) return state.dir === 'asc' ? -1 : 1;
+      if (av > bv) return state.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    const body = document.getElementById('rec-body');
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="7" class="ck-empty">
+        <i class="fa-solid fa-circle-check" style="color:#10b981"></i>
+        <p class="ck-empty-title">No recommendations match</p>
+        <p class="ck-empty-desc">Try a different filter or clear the search.</p>
+      </td></tr>`;
+      return;
+    }
+
+    body.innerHTML = rows.map((r, i) => {
+      const sev = String(r.severity || '').toLowerCase();
+      const savings = Number(r.savings_potential || 0);
+      const savingsHtml = savings > 0
+        ? `<span style="color: #10b981; font-weight: 700;">$${savings.toFixed(2)}</span>`
+        : '<span class="ck-mono">—</span>';
+      const recId = `rec-${i}`;
+      return `<tr id="${recId}">
+        <td><span class="ck-badge ${sev}">${r.severity || '—'}</span></td>
+        <td>
+          <strong>${r.resource || '—'}</strong><br>
+          <span class="ck-mono">${r.type || ''}</span>
+        </td>
+        <td><span class="ck-badge info">${r.provider || '—'}</span></td>
+        <td class="text-end ck-cost">$${Number(r.monthly_cost || 0).toFixed(2)}</td>
+        <td class="text-end">${savingsHtml}</td>
+        <td class="small">${r.recommendation || ''}</td>
+        <td class="text-end">
+          <button class="ck-btn" style="padding: 4px 10px; font-size: 11.5px;"
+                  onclick="applyRec(event, '${recId}', '${(r.resource||'').replace(/'/g,'')}')">
+            <i class="fa-solid fa-check"></i> Apply
+          </button>
+          <button class="ck-btn" style="padding: 4px 10px; font-size: 11.5px;"
+                  onclick="dismissRec(event, '${recId}', '${(r.resource||'').replace(/'/g,'')}')">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ---------------- apply / dismiss ----------------
+  window.applyRec = function(event, rowId, resourceName) {
+    event.stopPropagation();
+    const row = document.getElementById(rowId);
+    if (row) {
+      row.style.transition = 'all 0.3s ease';
+      row.style.background = 'rgba(16,185,129,0.1)';
+      row.style.opacity = '0.5';
+      setTimeout(() => row.remove(), 400);
+    }
+    ckToast(`Applied: ${resourceName} (Phase 3 will persist)`, 'success');
+  };
+
+  window.dismissRec = function(event, rowId, resourceName) {
+    event.stopPropagation();
+    DISMISSED.add(resourceName);
+    const row = document.getElementById(rowId);
+    if (row) {
+      row.style.transition = 'all 0.3s ease';
+      row.style.transform = 'translateX(20px)';
+      row.style.opacity = '0';
+      setTimeout(() => row.remove(), 300);
+    }
+    ckToast(`Dismissed: ${resourceName}`, 'info');
+  };
+
+  // ---------------- CSV export ----------------
+  document.getElementById('export-rec-btn').addEventListener('click', () => {
+    let csv = 'Severity,Resource,Provider,Type,Monthly Cost,Savings Potential,Recommendation\n';
+    ALL_RECS.forEach(r => {
+      csv += `"${r.severity}","${r.resource}","${r.provider}","${r.type}",${r.monthly_cost},${r.savings_potential || 0},"${(r.recommendation||'').replace(/"/g,'""')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'cloudkeeper-recommendations.csv'; a.click();
+    URL.revokeObjectURL(url);
+    ckToast('CSV exported', 'success');
+  });
+
+  // ---------------- toast helper ----------------
+  if (typeof window.ckToast !== 'function') {
+    window.ckToast = function(message, type = 'info') {
+      const t = document.createElement('div');
+      t.className = `ck-toast ${type}`;
+      t.innerHTML = `<i class="fa-solid fa-circle-check"></i><span>${message}</span>`;
+      document.body.appendChild(t);
+      requestAnimationFrame(() => t.classList.add('show'));
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2800);
+    };
+  }
+</script>
+{% endblock %}
