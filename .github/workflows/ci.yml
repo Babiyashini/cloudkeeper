@@ -1,0 +1,82 @@
+﻿name: CI — Build & Smoke Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Docker build + healthcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: cloudkeeper:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run container
+        run: |
+          docker run -d --name ck-ci -p 5000:5000 \
+            -v "$PWD/data:/app/data" \
+            -v "$PWD/templates:/app/templates" \
+            -v "$PWD/static:/app/static" \
+            cloudkeeper:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5000/health > /dev/null; then
+              echo "/health is up"
+              break
+            fi
+            echo "waiting ($i/30)..."
+            sleep 1
+          done
+
+      - name: Smoke test - /health
+        run: |
+          response=$(curl -sf http://localhost:5000/health)
+          echo "GET /health -> $response"
+          echo "$response" | grep -q '"status":"ok"' || (echo "health check failed" && exit 1)
+
+      - name: Smoke test - /api/costs/summary
+        run: |
+          response=$(curl -sf http://localhost:5000/api/costs/summary)
+          echo "GET /api/costs/summary -> $response"
+          echo "$response" | grep -q '"grand_total"' || (echo "summary missing grand_total" && exit 1)
+          echo "$response" | grep -q '"AWS"' || (echo "summary missing AWS" && exit 1)
+
+      - name: Smoke test - /api/alerts
+        run: |
+          response=$(curl -sf http://localhost:5000/api/alerts)
+          echo "GET /api/alerts -> $response"
+          echo "$response" | grep -q '"alerts"' || (echo "alerts missing alerts key" && exit 1)
+
+      - name: Smoke test - all 4 HTML pages
+        run: |
+          for path in / /resources /recommendations /reports; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5000$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || (echo "$path returned $code" && exit 1)
+          done
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker logs ck-ci
+
+      - name: Stop container
+        if: always()
+        run: docker stop ck-ci || true

@@ -1,0 +1,58 @@
+﻿name: Daily Cost Check
+
+on:
+  schedule:
+    # 09:00 UTC daily
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  cost-check:
+    name: Fetch budget alerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install flask
+
+      - name: Run cost alert check
+        run: |
+          python - <<'PY'
+          from modules import cost_analyzer, budget_alert
+          import json
+
+          summary = cost_analyzer.summary()
+          alerts = budget_alert.check_alerts()
+
+          print("=" * 60)
+          print("CloudKeeper — Daily Cost Check")
+          print("=" * 60)
+          print(f"Billing period : {summary.get('billing_period')}")
+          print(f"Grand total    : ${summary.get('grand_total'):,.2f}")
+          print()
+          print("Per provider:")
+          for name, val in summary.get("per_provider", {}).items():
+              print(f"  {name:<6} ${val:,.2f}")
+          print()
+          print("Budget alerts:")
+          for a in alerts.get("alerts", []):
+              print(f"  [{a['status']:<8}] {a['provider']:<6} "
+                    f"{a['usage_pct']:>6.2f}%  {a['message']}")
+
+          # Fail the workflow if any CRITICAL alert exists
+          criticals = [a for a in alerts.get("alerts", []) if a["status"] == "CRITICAL"]
+          if criticals:
+              print(f"\n::error::{len(criticals)} provider(s) over budget")
+              raise SystemExit(1)
+
+          print("\nAll budgets healthy")
+          PY
