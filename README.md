@@ -2,6 +2,8 @@
 
 Multi-cloud FinOps dashboard - real-time cost visibility, budget alerting, tag compliance, and optimization recommendations across AWS, Azure, and GCP.
 
+**🔗 Live demo:** https://cloudkeeper-1ef3a.containers.snapdeploy.app
+
 [![CI](https://github.com/Babiyashini/cloudkeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/Babiyashini/cloudkeeper/actions/workflows/ci.yml)
 [![Daily Cost Check](https://github.com/Babiyashini/cloudkeeper/actions/workflows/cost-check.yml/badge.svg)](https://github.com/Babiyashini/cloudkeeper/actions/workflows/cost-check.yml)
 
@@ -9,7 +11,8 @@ Multi-cloud FinOps dashboard - real-time cost visibility, budget alerting, tag c
 
 - Backend: Python 3.12, Flask 3, Gunicorn
 - Frontend: Jinja2, Chart.js 4, custom design system
-- Infra: Docker, Docker Compose, GitHub Actions
+- Infra: Docker, Docker Compose, GitHub Actions, GHCR, SnapDeploy
+- IaC: Terraform (Render provider config)
 
 ## Features
 
@@ -33,25 +36,9 @@ Multi-cloud FinOps dashboard - real-time cost visibility, budget alerting, tag c
 
 ## Automation
 
-- CI (.github/workflows/ci.yml) - Docker build + smoke tests on every push/PR
-- Daily Cost Check (.github/workflows/cost-check.yml) - runs daily 09:00 UTC
+- CI (.github/workflows/ci.yml) - Docker build + smoke tests on every push/PR, publishes image to GHCR
+- Daily Cost Check (.github/workflows/cost-check.yml) - runs daily at 09:00 UTC
 
-## Run locally
+## Container image
 
-docker compose up --build
-
-Open http://localhost:5050
-
-## Roadmap
-
-- [x] Phase 1: Flask + Docker scaffold
-- [x] Phase 2: Full FinOps logic + polished UI
-- [x] Phase 3A: Git + GitHub Actions CI
-- [x] Phase 3C: Daily cron cost-check workflow
-- [ ] Phase 3D: Push image to GHCR
-- [ ] Phase 3E: Terraform -> Render
-- [ ] Phase 3F: Live public URL
-
-## License
-
-MIT
+Published to GitHub Container Registry on every push to main:
